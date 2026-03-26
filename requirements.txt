@@ -1,0 +1,12 @@
+torch==2.1.1
+torchsde
+torchdiffeq
+vit-pytorch==1.4.4
+pytorch-lightning==1.9.5
+transformers==4.47.0
+accelerate
+safetensors
+openai>=1.0.0
+qwen-vl-utils
+Pillow
+numpy>1.2
