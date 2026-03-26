@@ -4,7 +4,7 @@ import argparse
 import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-
+import cv2
 import torch
 from openai import OpenAI
 from transformers import AutoProcessor, AutoModelForVision2Seq
@@ -14,51 +14,48 @@ from prompt.prompt import Prompt
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
+DEFAULT_LOCAL_MODEL_PATH=""
 
-DEFAULT_LOCAL_MODEL_PATH = os.getenv("LOCAL_VL_MODEL_PATH", "")
-
-
-def decompose_video(hdf5_path: str = "", save_path: Optional[str] = None) -> str:
+def decompose_video(video_path: str = "", save_path: Optional[str] = None) -> str:
     """
-    Decompose a video stored in HDF5 format into a frame directory.
-
-    Args:
-        hdf5_path (str): Path to the input HDF5 file.
-        save_path (Optional[str]): Directory to save extracted frames.
-            If None, a directory will be created next to the HDF5 file.
-
-    Returns:
-        str: Directory containing decomposed frames.
-
-    Notes:
-        This is a placeholder implementation. You should adapt it to the
-        actual internal structure of your HDF5 file.
+    Decompose a video a series of frame if save_path is None save in 
+    
+    video
+    |-video.mp4
+    |-video_frame
+        |---frame001.png
+        ...
     """
-    if not hdf5_path:
-        raise ValueError("`hdf5_path` cannot be empty.")
+    if not video_path:
+        raise ValueError("`video_path` cannot be empty.")
 
-    hdf5_path = str(Path(hdf5_path).resolve())
+    video_path = Path(video_path).resolve()
+
+    if not video_path.exists():
+        raise FileNotFoundError(f"Video file not found: {video_path}")
 
     if save_path is None:
-        save_path = str(Path(hdf5_path).with_suffix("")) + "_frames"
+        save_path = str(video_path.with_suffix("")) + "_frames"
 
+    save_path = Path(save_path).resolve()
     os.makedirs(save_path, exist_ok=True)
 
-    # TODO:
-    # Implement actual HDF5 frame extraction logic here.
-    # Example:
-    # import h5py
-    # from PIL import Image
-    # import numpy as np
-    #
-    # with h5py.File(hdf5_path, "r") as f:
-    #     frames = f["frames"]
-    #     for i in range(len(frames)):
-    #         arr = frames[i]
-    #         img = Image.fromarray(arr)
-    #         img.save(os.path.join(save_path, f"{i:06d}.jpg"))
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise RuntimeError(f"Failed to open video: {video_path}")
 
-    return save_path
+    frame_idx = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_idx += 1
+        frame_file = save_path / f"frame{frame_idx:06d}.png"
+        cv2.imwrite(str(frame_file), frame)
+
+    cap.release()
+    return str(save_path)
 
 
 def inference_with_openai_api(
@@ -78,8 +75,8 @@ def inference_with_openai_api(
     Returns:
         str: Model response text.
     """
-    api_key = ""
-    base_url = ""
+    api_key = "sk-14feb0aba5814c62960c2dc4e1d17f4d"
+    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
     client = OpenAI(
         api_key=api_key,
